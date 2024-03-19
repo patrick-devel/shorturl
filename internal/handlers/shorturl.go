@@ -14,9 +14,9 @@ const (
 	minLength = 6
 )
 
-var cache = map[string]string{}
+var Cache = map[string]string{}
 
-func generateHash(url string) (*string, error) {
+func GenerateHash(url string) (*string, error) {
 	generatedNumber := new(big.Int).SetBytes([]byte(url)).Uint64()
 	s, err := sqids.New(sqids.Options{MinLength: minLength})
 	if err != nil {
@@ -49,14 +49,14 @@ func MakeShortLink(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	urlHashBytes, err := generateHash(urlBase.String())
+	urlHashBytes, err := GenerateHash(urlBase.String())
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	shortLink := localhost + "/" + *urlHashBytes
-	cache[*urlHashBytes] = urlBase.String()
+	Cache[*urlHashBytes] = urlBase.String()
 
 	res.WriteHeader(http.StatusCreated)
 	res.Write([]byte(shortLink))
@@ -69,7 +69,7 @@ func RedirectShortLink(res http.ResponseWriter, req *http.Request) {
 	}
 
 	hashURL := req.PathValue("id")
-	baseURL, ok := cache[hashURL]
+	baseURL, ok := Cache[hashURL]
 	if !ok {
 		http.Error(res, "link does not exist", http.StatusBadRequest)
 		return
