@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +18,11 @@ import (
 func TestMakeShortLink(t *testing.T) {
 	t.Parallel()
 	asser := assert.New(t)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.POST("/", handlers.MakeShortLink)
+	router.HandleMethodNotAllowed = true
 
 	tests := []struct {
 		name    string
@@ -60,12 +66,10 @@ func TestMakeShortLink(t *testing.T) {
 		testcase := tc
 		t.Run(testcase.name, func(t *testing.T) {
 			t.Parallel()
-
 			req := httptest.NewRequest(testcase.method, "/", testcase.body)
-
 			recorder := httptest.NewRecorder()
 
-			handlers.MakeShortLink(recorder, req)
+			router.ServeHTTP(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()
@@ -82,6 +86,11 @@ func TestMakeShortLink(t *testing.T) {
 func TestRedirectShortLink(t *testing.T) {
 	t.Parallel()
 	asser := assert.New(t)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/:id", handlers.RedirectShortLink)
+	router.HandleMethodNotAllowed = true
 
 	baseURL := "https://practicum.yandex.ru/"
 	hash, err := handlers.GenerateHash(baseURL)
@@ -123,8 +132,7 @@ func TestRedirectShortLink(t *testing.T) {
 			req.SetPathValue("id", testcase.hash)
 
 			recorder := httptest.NewRecorder()
-
-			handlers.RedirectShortLink(recorder, req)
+			router.ServeHTTP(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()
