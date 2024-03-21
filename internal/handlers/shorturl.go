@@ -12,10 +12,7 @@ import (
 	"github.com/patrick-devel/shorturl/config"
 )
 
-const (
-	localhost = "http://localhost:8080"
-	minLength = 6
-)
+const minLength = 6
 
 var Cache = map[string]string{}
 
@@ -54,7 +51,7 @@ func MakeShortLink(c *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		shortLink := c.TemplateLink.String() + "/" + *urlHashBytes
+		shortLink := c.BaseURL.String() + "/" + *urlHashBytes
 		Cache[*urlHashBytes] = urlBase.String()
 
 		context.String(http.StatusCreated, shortLink)
