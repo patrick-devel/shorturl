@@ -59,12 +59,15 @@ func (t *TemplateLink) Set(value string) error {
 	return nil
 }
 
-func ParseFlag() (Addr, TemplateLink) {
-	var addr Addr
-	var template TemplateLink
+var addr Addr
+var template TemplateLink
 
+func init() {
 	flag.Var(&addr, "a", "Используйте адрес формата `host:port`")
 	flag.Var(&template, "b", "Укажите адрес получения коротких ссылок. Пример: http://localhost/path/to/short")
+}
+
+func ParseFlag() (Addr, TemplateLink) {
 	flag.Parse()
 
 	return addr, template
