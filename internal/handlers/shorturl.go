@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sqids/sqids-go"
+
+	"github.com/patrick-devel/shorturl/config"
 )
 
 const (
@@ -32,30 +34,31 @@ func GenerateHash(url string) (*string, error) {
 	return &id, nil
 }
 
-func MakeShortLink(context *gin.Context) {
-	body, err := io.ReadAll(context.Request.Body)
-	if err != nil {
-		context.String(http.StatusBadRequest, err.Error())
-		return
+func MakeShortLink(c *config.Config) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		body, err := io.ReadAll(context.Request.Body)
+		if err != nil {
+			context.String(http.StatusBadRequest, err.Error())
+			return
+		}
+
+		urlBase, err := url.ParseRequestURI(string(body))
+		if err != nil {
+			context.String(http.StatusBadRequest, err.Error())
+			return
+		}
+
+		urlHashBytes, err := GenerateHash(urlBase.String())
+		if err != nil {
+			context.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		shortLink := c.TemplateLink.String() + "/" + *urlHashBytes
+		Cache[*urlHashBytes] = urlBase.String()
+
+		context.String(http.StatusCreated, shortLink)
 	}
-
-	urlBase, err := url.ParseRequestURI(string(body))
-	if err != nil {
-		context.String(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	urlHashBytes, err := GenerateHash(urlBase.String())
-	if err != nil {
-		context.String(http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	shortLink := localhost + "/" + *urlHashBytes
-	Cache[*urlHashBytes] = urlBase.String()
-
-	context.String(http.StatusCreated, shortLink)
-
 }
 
 func RedirectShortLink(context *gin.Context) {

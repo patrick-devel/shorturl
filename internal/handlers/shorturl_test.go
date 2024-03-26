@@ -12,8 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/patrick-devel/shorturl/config"
 	"github.com/patrick-devel/shorturl/internal/handlers"
 )
+
+var defaultConfig = config.NewConfigBuilder().Build()
 
 func TestMakeShortLink(t *testing.T) {
 	t.Parallel()
@@ -21,7 +24,7 @@ func TestMakeShortLink(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
-	router.POST("/", handlers.MakeShortLink)
+	router.POST("/", handlers.MakeShortLink(&defaultConfig))
 	router.HandleMethodNotAllowed = true
 
 	tests := []struct {
