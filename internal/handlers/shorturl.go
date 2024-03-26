@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/gin-gonic/gin"
 	"github.com/sqids/sqids-go"
 )
 
@@ -31,49 +32,39 @@ func GenerateHash(url string) (*string, error) {
 	return &id, nil
 }
 
-func MakeShortLink(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		http.Error(res, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(req.Body)
+func MakeShortLink(context *gin.Context) {
+	body, err := io.ReadAll(context.Request.Body)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		context.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	urlBase, err := url.ParseRequestURI(string(body))
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		context.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	urlHashBytes, err := GenerateHash(urlBase.String())
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		context.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	shortLink := localhost + "/" + *urlHashBytes
 	Cache[*urlHashBytes] = urlBase.String()
 
-	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte(shortLink))
+	context.String(http.StatusCreated, shortLink)
+
 }
 
-func RedirectShortLink(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		http.Error(res, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	hashURL := req.PathValue("id")
+func RedirectShortLink(context *gin.Context) {
+	hashURL := context.Param("id")
 	baseURL, ok := Cache[hashURL]
 	if !ok {
-		http.Error(res, "link does not exist", http.StatusBadRequest)
+		context.String(http.StatusBadRequest, "link does not exist")
 		return
 	}
 
-	http.Redirect(res, req, baseURL, http.StatusTemporaryRedirect)
+	context.Redirect(http.StatusTemporaryRedirect, baseURL)
 }
