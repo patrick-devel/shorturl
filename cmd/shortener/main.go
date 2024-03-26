@@ -6,9 +6,11 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 
 	"github.com/patrick-devel/shorturl/config"
 	"github.com/patrick-devel/shorturl/internal/handlers"
+	middlewares "github.com/patrick-devel/shorturl/internal/middlwares"
 )
 
 func main() {
@@ -26,7 +28,18 @@ func main() {
 
 	cfg := config.NewConfigBuilder().WithAddress(addr).WithBaseURL(*baseURL).Build()
 
+	logger := logrus.New()
+	logger.SetFormatter(&logrus.JSONFormatter{})
+	level, err := logrus.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		level = logrus.InfoLevel
+	}
+	logger.SetLevel(level)
+
+	loggingMdlwr := middlewares.LoggingMiddleware(logger)
+
 	mux := gin.New()
+	mux.Use(loggingMdlwr)
 	mux.POST("/", handlers.MakeShortLink(&cfg))
 	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLink)
 	mux.HandleMethodNotAllowed = true

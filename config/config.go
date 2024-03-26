@@ -3,13 +3,15 @@ package config
 import "net/url"
 
 var (
-	defaultAddr    = ":8080"
-	defaultBaseURL = url.URL{Scheme: "http", Host: "localhost:8080"}
+	defaultAddr     = ":8080"
+	defaultBaseURL  = url.URL{Scheme: "http", Host: "localhost:8080"}
+	defaultLogLevel = "INFO"
 )
 
 type Config struct {
-	Addr    string
-	BaseURL url.URL
+	Addr     string
+	BaseURL  url.URL
+	LogLevel string
 }
 
 type ConfigBuilder struct {
@@ -42,6 +44,6 @@ func (cb *ConfigBuilder) Build() Config {
 	if cb.config.BaseURL == (url.URL{}) {
 		cb.config.BaseURL = defaultBaseURL
 	}
-
+	cb.config.LogLevel = defaultLogLevel
 	return *cb.config
 }
