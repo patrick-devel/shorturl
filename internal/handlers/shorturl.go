@@ -10,6 +10,7 @@ import (
 	"github.com/sqids/sqids-go"
 
 	"github.com/patrick-devel/shorturl/config"
+	"github.com/patrick-devel/shorturl/internal/models"
 )
 
 const minLength = 6
@@ -31,7 +32,7 @@ func GenerateHash(url string) (*string, error) {
 	return &id, nil
 }
 
-func MakeShortLink(c *config.Config) gin.HandlerFunc {
+func MakeShortLinkHandler(c *config.Config) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		body, err := io.ReadAll(context.Request.Body)
 		if err != nil {
@@ -58,7 +59,7 @@ func MakeShortLink(c *config.Config) gin.HandlerFunc {
 	}
 }
 
-func RedirectShortLink(context *gin.Context) {
+func RedirectShortLinkHandler(context *gin.Context) {
 	hashURL := context.Param("id")
 	baseURL, ok := Cache[hashURL]
 	if !ok {
@@ -67,4 +68,24 @@ func RedirectShortLink(context *gin.Context) {
 	}
 
 	context.Redirect(http.StatusTemporaryRedirect, baseURL)
+}
+
+func MakeShortURLJSONHandler(c *config.Config) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		var request models.Request
+
+		if err := context.BindJSON(&request); err != nil {
+			context.String(http.StatusBadRequest, err.Error())
+		}
+
+		urlHashBytes, err := GenerateHash(request.URL.String())
+		if err != nil {
+			context.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		Cache[*urlHashBytes] = request.URL.String()
+		resp := models.Response{Result: c.BaseURL.String() + "/" + *urlHashBytes}
+		context.JSON(http.StatusCreated, resp)
+	}
 }

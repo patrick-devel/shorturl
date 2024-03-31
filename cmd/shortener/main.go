@@ -40,8 +40,9 @@ func main() {
 
 	mux := gin.New()
 	mux.Use(loggingMdlwr)
-	mux.POST("/", handlers.MakeShortLink(&cfg))
-	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLink)
+	mux.POST("/", handlers.MakeShortLinkHandler(&cfg))
+	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLinkHandler)
+	mux.POST("/api/shorten", handlers.MakeShortURLJSONHandler(&cfg))
 	mux.HandleMethodNotAllowed = true
 
 	err = mux.Run(cfg.Addr)
