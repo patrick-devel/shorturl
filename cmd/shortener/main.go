@@ -40,6 +40,7 @@ func main() {
 
 	mux := gin.New()
 	mux.Use(loggingMdlwr)
+	mux.Use(middlewares.GzipMiddleware())
 	mux.POST("/", handlers.MakeShortLinkHandler(&cfg))
 	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLinkHandler)
 	mux.POST("/api/shorten", handlers.MakeShortURLJSONHandler(&cfg))
