@@ -1,6 +1,13 @@
 package config
 
-import "net/url"
+import (
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+
+	"github.com/sirupsen/logrus"
+)
 
 var (
 	defaultAddr     = ":8080"
@@ -12,6 +19,18 @@ type Config struct {
 	Addr     string
 	BaseURL  url.URL
 	LogLevel string
+
+	FileStoragePath string
+	fileIsTemp      bool
+}
+
+func (c *Config) RemoveTemp() {
+	if c.fileIsTemp {
+		err := os.Remove(c.FileStoragePath)
+		if err != nil {
+			logrus.Warning(err)
+		}
+	}
 }
 
 type ConfigBuilder struct {
@@ -36,7 +55,28 @@ func (cb *ConfigBuilder) WithBaseURL(baseURL url.URL) *ConfigBuilder {
 	return cb
 }
 
-func (cb *ConfigBuilder) Build() Config {
+func (cb *ConfigBuilder) WithFileStoragePath(path string) *ConfigBuilder {
+	if path != "" {
+		cb.config.FileStoragePath = path
+	}
+
+	return cb
+}
+
+func (cb *ConfigBuilder) existOrCreateFile() error {
+	_, err := os.Stat(cb.config.FileStoragePath)
+	if errors.Is(err, os.ErrNotExist) {
+		// если файла не сущ-ет, то создаем его
+		_, err := os.Create(cb.config.FileStoragePath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (cb *ConfigBuilder) Build() (*Config, error) {
 	if cb.config.Addr == "" || cb.config.Addr == ":0" {
 		cb.config.Addr = defaultAddr
 	}
@@ -44,6 +84,21 @@ func (cb *ConfigBuilder) Build() Config {
 	if cb.config.BaseURL == (url.URL{}) {
 		cb.config.BaseURL = defaultBaseURL
 	}
+
+	if cb.config.FileStoragePath != "" {
+		if err := cb.existOrCreateFile(); err != nil {
+			return cb.config, fmt.Errorf("file path do not created: %w", err)
+		}
+		cb.config.fileIsTemp = false
+	} else {
+		file, err := os.CreateTemp("", "short-url-db.*.json")
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		cb.config.FileStoragePath = file.Name()
+		cb.config.fileIsTemp = true
+	}
+
 	cb.config.LogLevel = defaultLogLevel
-	return *cb.config
+	return cb.config, nil
 }

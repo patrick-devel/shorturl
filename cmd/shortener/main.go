@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	flagAddr, flagBaseURL := ParseFlag()
+	flagAddr, flagBaseURL, flagFilePath := ParseFlag()
 
 	addr := os.Getenv("SERVER_ADDRESS")
 	if addr == "" {
@@ -26,7 +26,23 @@ func main() {
 		baseURL = &flagBaseURL.url
 	}
 
-	cfg := config.NewConfigBuilder().WithAddress(addr).WithBaseURL(*baseURL).Build()
+	fileStorage := os.Getenv("FILE_STORAGE_PATH")
+	if fileStorage == "" {
+		fileStorage = flagFilePath
+	}
+
+	cfg, err := config.
+		NewConfigBuilder().
+		WithAddress(addr).
+		WithBaseURL(*baseURL).
+		WithFileStoragePath(fileStorage).
+		Build()
+
+	defer cfg.RemoveTemp()
+
+	if err != nil {
+		logrus.Fatal(fmt.Errorf("do not build config: %w", err))
+	}
 
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.JSONFormatter{})
