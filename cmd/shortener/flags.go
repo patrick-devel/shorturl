@@ -66,7 +66,7 @@ var filePath string
 func init() {
 	flag.Var(&addr, "a", "Используйте адрес формата `host:port`")
 	flag.Var(&template, "b", "Укажите адрес получения коротких ссылок. Пример: `http://localhost/path/to/short`")
-	flag.String(filePath, "f", "Укажите путь до файла для сохранения данныз по запросам. Пример: `/path/to/dir`")
+	flag.StringVar(&filePath, "f", "", "Укажите путь до файла для сохранения данныз по запросам. Пример: `/path/to/dir`")
 }
 
 func ParseFlag() (Addr, TemplateLink, string) {
