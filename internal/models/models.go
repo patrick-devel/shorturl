@@ -36,3 +36,9 @@ func (r *Request) UnmarshalJSON(data []byte) error {
 type Response struct {
 	Result string `json:"result"`
 }
+
+type Event struct {
+	UUID        string `json:"uuid"`
+	ShortUrl    string `json:"short_url"`
+	OriginalUrl string `json:"original_url"`
+}
