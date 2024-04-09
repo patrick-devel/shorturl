@@ -9,8 +9,10 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/patrick-devel/shorturl/config"
+	"github.com/patrick-devel/shorturl/internal/file_manager"
 	"github.com/patrick-devel/shorturl/internal/handlers"
 	middlewares "github.com/patrick-devel/shorturl/internal/middlwares"
+	"github.com/patrick-devel/shorturl/internal/service"
 )
 
 func main() {
@@ -54,12 +56,26 @@ func main() {
 
 	loggingMdlwr := middlewares.LoggingMiddleware(logger)
 
+	consumer, err := file_manager.NewConsumer(fileStorage)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer consumer.Close()
+
+	producer, err := file_manager.NewProducer(fileStorage)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer producer.Close()
+
+	fileManager := service.New(consumer, producer)
+
 	mux := gin.New()
 	mux.Use(loggingMdlwr)
 	mux.Use(middlewares.GzipMiddleware())
-	mux.POST("/", handlers.MakeShortLinkHandler(&cfg))
-	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLinkHandler)
-	mux.POST("/api/shorten", handlers.MakeShortURLJSONHandler(&cfg))
+	mux.POST("/", handlers.MakeShortLinkHandler(cfg, fileManager))
+	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLinkHandler(fileManager))
+	mux.POST("/api/shorten", handlers.MakeShortURLJSONHandler(cfg, fileManager))
 	mux.HandleMethodNotAllowed = true
 
 	err = mux.Run(cfg.Addr)
