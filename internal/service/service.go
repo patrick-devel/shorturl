@@ -32,11 +32,11 @@ func (fm *FileManager) ReadEvent(hash string) (string, error) {
 		return "", fmt.Errorf("error read event: %w", err)
 	}
 
-	return event.OriginalUrl, nil
+	return event.OriginalURL, nil
 }
 
-func (fm *FileManager) WriteEvent(hash, originalUrl string) error {
-	event := models.Event{UUID: uuid.NewString(), ShortUrl: hash, OriginalUrl: originalUrl}
+func (fm *FileManager) WriteEvent(hash, originalURL string) error {
+	event := models.Event{UUID: uuid.NewString(), ShortURL: hash, OriginalURL: originalURL}
 	err := fm.producer.WriteEvent(&event)
 	if err != nil {
 		return fmt.Errorf("error write event: %w", err)

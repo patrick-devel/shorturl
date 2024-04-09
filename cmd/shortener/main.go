@@ -56,13 +56,13 @@ func main() {
 
 	loggingMdlwr := middlewares.LoggingMiddleware(logger)
 
-	consumer, err := file_manager.NewConsumer(fileStorage)
+	consumer, err := filemanager.NewConsumer(fileStorage)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	defer consumer.Close()
 
-	producer, err := file_manager.NewProducer(fileStorage)
+	producer, err := filemanager.NewProducer(fileStorage)
 	if err != nil {
 		logger.Fatal(err)
 	}

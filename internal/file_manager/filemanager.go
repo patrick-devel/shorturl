@@ -1,4 +1,4 @@
-package file_manager
+package filemanager
 
 import (
 	"bufio"
@@ -63,7 +63,7 @@ func (c *Consumer) ReadEvent(hash string) (*models.Event, error) {
 			return nil, err
 		}
 
-		if event.ShortUrl == hash {
+		if event.ShortURL == hash {
 			return &event, nil
 		}
 	}

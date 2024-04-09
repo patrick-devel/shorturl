@@ -25,9 +25,9 @@ func TestMakeShortLinkHandler(t *testing.T) {
 	defer defaultConfig.RemoveTemp()
 
 	require.NoError(t, err)
-	consumer, err := file_manager.NewConsumer(defaultConfig.FileStoragePath)
+	consumer, err := filemanager.NewConsumer(defaultConfig.FileStoragePath)
 	require.NoError(t, err)
-	producer, err := file_manager.NewProducer(defaultConfig.FileStoragePath)
+	producer, err := filemanager.NewProducer(defaultConfig.FileStoragePath)
 	require.NoError(t, err)
 	fileManager := service.New(consumer, producer)
 
@@ -101,9 +101,9 @@ func TestRedirectShortLinkHandler(t *testing.T) {
 	defer defaultConfig.RemoveTemp()
 
 	require.NoError(t, err)
-	consumer, err := file_manager.NewConsumer(defaultConfig.FileStoragePath)
+	consumer, err := filemanager.NewConsumer(defaultConfig.FileStoragePath)
 	require.NoError(t, err)
-	producer, err := file_manager.NewProducer(defaultConfig.FileStoragePath)
+	producer, err := filemanager.NewProducer(defaultConfig.FileStoragePath)
 	require.NoError(t, err)
 	fileManager := service.New(consumer, producer)
 
@@ -172,9 +172,9 @@ func TestMakeShortLinkJSONHandler(t *testing.T) {
 	defer defaultConfig.RemoveTemp()
 
 	require.NoError(t, err)
-	consumer, err := file_manager.NewConsumer(defaultConfig.FileStoragePath)
+	consumer, err := filemanager.NewConsumer(defaultConfig.FileStoragePath)
 	require.NoError(t, err)
-	producer, err := file_manager.NewProducer(defaultConfig.FileStoragePath)
+	producer, err := filemanager.NewProducer(defaultConfig.FileStoragePath)
 	require.NoError(t, err)
 	fileManager := service.New(consumer, producer)
 

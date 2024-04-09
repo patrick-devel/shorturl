@@ -20,7 +20,7 @@ var Cache = map[string]string{}
 
 type FileManager interface {
 	ReadEvent(hash string) (string, error)
-	WriteEvent(hash, originalUrl string) error
+	WriteEvent(hash, originalURL string) error
 }
 
 func GenerateHash(url string) (*string, error) {
@@ -74,13 +74,13 @@ func RedirectShortLinkHandler(fileManager FileManager) gin.HandlerFunc {
 		hashURL := context.Param("id")
 		baseURL, ok := Cache[hashURL]
 		if !ok {
-			originalUrl, err := fileManager.ReadEvent(hashURL)
+			originalURL, err := fileManager.ReadEvent(hashURL)
 			if err != nil {
 				context.String(http.StatusBadRequest, "link does not exist")
 				return
 			}
 
-			baseURL = originalUrl
+			baseURL = originalURL
 		}
 
 		context.Redirect(http.StatusTemporaryRedirect, baseURL)
