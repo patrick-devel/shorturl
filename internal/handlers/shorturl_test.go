@@ -13,26 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/patrick-devel/shorturl/config"
-	"github.com/patrick-devel/shorturl/internal/file_manager"
 	"github.com/patrick-devel/shorturl/internal/handlers"
-	"github.com/patrick-devel/shorturl/internal/service"
 )
+
+var defaultConfig, _ = config.NewConfigBuilder().Build()
 
 func TestMakeShortLinkHandler(t *testing.T) {
 	t.Parallel()
 
-	defaultConfig, err := config.NewConfigBuilder().Build()
-	defer defaultConfig.RemoveTemp()
-
-	require.NoError(t, err)
-	consumer, err := filemanager.NewConsumer(defaultConfig.FileStoragePath)
-	require.NoError(t, err)
-	producer, err := filemanager.NewProducer(defaultConfig.FileStoragePath)
-	require.NoError(t, err)
-	fileManager := service.New(consumer, producer)
-
 	router := gin.Default()
-	router.POST("/", handlers.MakeShortLinkHandler(defaultConfig, fileManager))
+	router.POST("/", handlers.MakeShortLinkHandler(defaultConfig, nil))
 	router.HandleMethodNotAllowed = true
 
 	tests := []struct {
@@ -97,19 +87,9 @@ func TestMakeShortLinkHandler(t *testing.T) {
 func TestRedirectShortLinkHandler(t *testing.T) {
 	t.Parallel()
 
-	defaultConfig, err := config.NewConfigBuilder().Build()
-	defer defaultConfig.RemoveTemp()
-
-	require.NoError(t, err)
-	consumer, err := filemanager.NewConsumer(defaultConfig.FileStoragePath)
-	require.NoError(t, err)
-	producer, err := filemanager.NewProducer(defaultConfig.FileStoragePath)
-	require.NoError(t, err)
-	fileManager := service.New(consumer, producer)
-
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
-	router.GET("/:id", handlers.RedirectShortLinkHandler(fileManager))
+	router.GET("/:id", handlers.RedirectShortLinkHandler(nil))
 	router.HandleMethodNotAllowed = true
 
 	baseURL := "https://practicum.yandex.ru/"
@@ -168,19 +148,9 @@ func TestRedirectShortLinkHandler(t *testing.T) {
 func TestMakeShortLinkJSONHandler(t *testing.T) {
 	t.Parallel()
 
-	defaultConfig, err := config.NewConfigBuilder().Build()
-	defer defaultConfig.RemoveTemp()
-
-	require.NoError(t, err)
-	consumer, err := filemanager.NewConsumer(defaultConfig.FileStoragePath)
-	require.NoError(t, err)
-	producer, err := filemanager.NewProducer(defaultConfig.FileStoragePath)
-	require.NoError(t, err)
-	fileManager := service.New(consumer, producer)
-
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
-	router.POST("/", handlers.MakeShortURLJSONHandler(defaultConfig, fileManager))
+	router.POST("/", handlers.MakeShortURLJSONHandler(defaultConfig, nil))
 	router.HandleMethodNotAllowed = true
 
 	tests := []struct {

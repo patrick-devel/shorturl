@@ -44,3 +44,8 @@ func (fm *FileManager) WriteEvent(hash, originalURL string) error {
 
 	return nil
 }
+
+func (fm *FileManager) CloseFiles() {
+	fm.consumer.Close()
+	fm.producer.Close()
+}

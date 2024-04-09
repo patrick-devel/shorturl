@@ -15,6 +15,20 @@ import (
 	"github.com/patrick-devel/shorturl/internal/service"
 )
 
+func fileStorageSetup(logger *logrus.Logger, path string) *service.FileManager {
+	consumer, err := filemanager.NewConsumer(path)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	producer, err := filemanager.NewProducer(path)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	return service.New(consumer, producer)
+}
+
 func main() {
 	flagAddr, flagBaseURL, flagFilePath := ParseFlag()
 
@@ -56,19 +70,12 @@ func main() {
 
 	loggingMdlwr := middlewares.LoggingMiddleware(logger)
 
-	consumer, err := filemanager.NewConsumer(fileStorage)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	defer consumer.Close()
+	var fileManager *service.FileManager
 
-	producer, err := filemanager.NewProducer(fileStorage)
-	if err != nil {
-		logger.Fatal(err)
+	if fileStorage != "" {
+		fileManager = fileStorageSetup(logger, fileStorage)
+		defer fileManager.CloseFiles()
 	}
-	defer producer.Close()
-
-	fileManager := service.New(consumer, producer)
 
 	mux := gin.New()
 	mux.Use(loggingMdlwr)

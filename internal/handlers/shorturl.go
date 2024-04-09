@@ -12,16 +12,12 @@ import (
 
 	"github.com/patrick-devel/shorturl/config"
 	"github.com/patrick-devel/shorturl/internal/models"
+	"github.com/patrick-devel/shorturl/internal/service"
 )
 
 const minLength = 6
 
 var Cache = map[string]string{}
-
-type FileManager interface {
-	ReadEvent(hash string) (string, error)
-	WriteEvent(hash, originalURL string) error
-}
 
 func GenerateHash(url string) (*string, error) {
 	generatedNumber := new(big.Int).SetBytes([]byte(url)).Uint64()
@@ -38,7 +34,7 @@ func GenerateHash(url string) (*string, error) {
 	return &id, nil
 }
 
-func MakeShortLinkHandler(c *config.Config, fileManager FileManager) gin.HandlerFunc {
+func MakeShortLinkHandler(c *config.Config, fileManager *service.FileManager) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		body, err := io.ReadAll(context.Request.Body)
 		if err != nil {
@@ -61,19 +57,21 @@ func MakeShortLinkHandler(c *config.Config, fileManager FileManager) gin.Handler
 		shortLink := c.BaseURL.String() + "/" + *urlHashBytes
 		Cache[*urlHashBytes] = urlBase.String()
 
-		if err := fileManager.WriteEvent(*urlHashBytes, urlBase.String()); err != nil {
-			logrus.Warning(err)
+		if fileManager != nil {
+			if err := fileManager.WriteEvent(*urlHashBytes, urlBase.String()); err != nil {
+				logrus.Warning(err)
+			}
 		}
 
 		context.String(http.StatusCreated, shortLink)
 	}
 }
 
-func RedirectShortLinkHandler(fileManager FileManager) gin.HandlerFunc {
+func RedirectShortLinkHandler(fileManager *service.FileManager) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		hashURL := context.Param("id")
 		baseURL, ok := Cache[hashURL]
-		if !ok {
+		if !ok && fileManager != nil {
 			originalURL, err := fileManager.ReadEvent(hashURL)
 			if err != nil {
 				context.String(http.StatusBadRequest, "link does not exist")
@@ -81,13 +79,16 @@ func RedirectShortLinkHandler(fileManager FileManager) gin.HandlerFunc {
 			}
 
 			baseURL = originalURL
+		} else if !ok {
+			context.String(http.StatusBadRequest, "link does not exist")
+			return
 		}
 
 		context.Redirect(http.StatusTemporaryRedirect, baseURL)
 	}
 }
 
-func MakeShortURLJSONHandler(c *config.Config, fileManager FileManager) gin.HandlerFunc {
+func MakeShortURLJSONHandler(c *config.Config, fileManager *service.FileManager) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		var request models.Request
 
@@ -104,8 +105,10 @@ func MakeShortURLJSONHandler(c *config.Config, fileManager FileManager) gin.Hand
 		Cache[*urlHashBytes] = request.URL.String()
 		resp := models.Response{Result: c.BaseURL.String() + "/" + *urlHashBytes}
 
-		if err := fileManager.WriteEvent(*urlHashBytes, c.BaseURL.String()); err != nil {
-			logrus.Warning(err)
+		if fileManager != nil {
+			if err := fileManager.WriteEvent(*urlHashBytes, c.BaseURL.String()); err != nil {
+				logrus.Warning(err)
+			}
 		}
 
 		context.JSON(http.StatusCreated, resp)
