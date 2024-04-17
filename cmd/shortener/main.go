@@ -1,11 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 
 	"github.com/patrick-devel/shorturl/config"
@@ -30,21 +33,26 @@ func fileStorageSetup(logger *logrus.Logger, path string) *service.FileManager {
 }
 
 func main() {
-	flagAddr, flagBaseURL, flagFilePath := ParseFlag()
+	parsedFlags := ParseFlag()
 
 	addr := os.Getenv("SERVER_ADDRESS")
 	if addr == "" {
-		addr = flagAddr.String()
+		addr = parsedFlags.Addr.String()
 	}
 
 	baseURL, err := url.ParseRequestURI(os.Getenv("BASE_URL"))
 	if baseURL != (&url.URL{}) || err != nil {
-		baseURL = &flagBaseURL.url
+		baseURL = &parsedFlags.TemplateLink.url
 	}
 
 	fileStorage := os.Getenv("FILE_STORAGE_PATH")
 	if fileStorage == "" {
-		fileStorage = flagFilePath
+		fileStorage = parsedFlags.FilePath
+	}
+
+	databaseDSN := os.Getenv("DATABASE_DSN")
+	if databaseDSN == "" {
+		databaseDSN = parsedFlags.DatabaseDSN
 	}
 
 	cfg, err := config.
@@ -52,13 +60,13 @@ func main() {
 		WithAddress(addr).
 		WithBaseURL(*baseURL).
 		WithFileStoragePath(fileStorage).
+		WithDatabaseDSN(databaseDSN).
 		Build()
-
-	defer cfg.RemoveTemp()
-
 	if err != nil {
 		logrus.Fatal(fmt.Errorf("do not build config: %w", err))
 	}
+
+	defer cfg.RemoveTemp()
 
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.JSONFormatter{})
@@ -69,6 +77,13 @@ func main() {
 	logger.SetLevel(level)
 
 	loggingMdlwr := middlewares.LoggingMiddleware(logger)
+
+	db, err := sql.Open("postgres", databaseDSN)
+	if err != nil {
+		logrus.Fatalf("db not connected: %v", err)
+	}
+
+	defer db.Close()
 
 	var fileManager *service.FileManager
 
@@ -83,6 +98,16 @@ func main() {
 	mux.POST("/", handlers.MakeShortLinkHandler(cfg, fileManager))
 	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLinkHandler(fileManager))
 	mux.POST("/api/shorten", handlers.MakeShortURLJSONHandler(cfg, fileManager))
+	mux.GET("/ping", func(c *gin.Context) {
+		if err := db.Ping(); err != nil {
+			c.JSON(http.StatusInternalServerError, "")
+
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+	})
 	mux.HandleMethodNotAllowed = true
 
 	err = mux.Run(cfg.Addr)
