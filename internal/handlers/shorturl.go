@@ -7,9 +7,12 @@ import (
 	"net/url"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"github.com/sqids/sqids-go"
 
 	"github.com/patrick-devel/shorturl/config"
+	"github.com/patrick-devel/shorturl/internal/models"
+	"github.com/patrick-devel/shorturl/internal/service"
 )
 
 const minLength = 6
@@ -31,7 +34,7 @@ func GenerateHash(url string) (*string, error) {
 	return &id, nil
 }
 
-func MakeShortLink(c *config.Config) gin.HandlerFunc {
+func MakeShortLinkHandler(c *config.Config, fileManager *service.FileManager) gin.HandlerFunc {
 	return func(context *gin.Context) {
 		body, err := io.ReadAll(context.Request.Body)
 		if err != nil {
@@ -54,17 +57,60 @@ func MakeShortLink(c *config.Config) gin.HandlerFunc {
 		shortLink := c.BaseURL.String() + "/" + *urlHashBytes
 		Cache[*urlHashBytes] = urlBase.String()
 
+		if fileManager != nil {
+			if err := fileManager.WriteEvent(*urlHashBytes, urlBase.String()); err != nil {
+				logrus.Warning(err)
+			}
+		}
+
 		context.String(http.StatusCreated, shortLink)
 	}
 }
 
-func RedirectShortLink(context *gin.Context) {
-	hashURL := context.Param("id")
-	baseURL, ok := Cache[hashURL]
-	if !ok {
-		context.String(http.StatusBadRequest, "link does not exist")
-		return
-	}
+func RedirectShortLinkHandler(fileManager *service.FileManager) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		hashURL := context.Param("id")
+		baseURL, ok := Cache[hashURL]
+		if !ok && fileManager != nil {
+			originalURL, err := fileManager.ReadEvent(hashURL)
+			if err != nil {
+				context.String(http.StatusBadRequest, "link does not exist")
+				return
+			}
 
-	context.Redirect(http.StatusTemporaryRedirect, baseURL)
+			baseURL = originalURL
+		} else if !ok {
+			context.String(http.StatusBadRequest, "link does not exist")
+			return
+		}
+
+		context.Redirect(http.StatusTemporaryRedirect, baseURL)
+	}
+}
+
+func MakeShortURLJSONHandler(c *config.Config, fileManager *service.FileManager) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		var request models.Request
+
+		if err := context.BindJSON(&request); err != nil {
+			context.String(http.StatusBadRequest, err.Error())
+		}
+
+		urlHashBytes, err := GenerateHash(request.URL.String())
+		if err != nil {
+			context.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		Cache[*urlHashBytes] = request.URL.String()
+		resp := models.Response{Result: c.BaseURL.String() + "/" + *urlHashBytes}
+
+		if fileManager != nil {
+			if err := fileManager.WriteEvent(*urlHashBytes, c.BaseURL.String()); err != nil {
+				logrus.Warning(err)
+			}
+		}
+
+		context.JSON(http.StatusCreated, resp)
+	}
 }
