@@ -1,51 +1,63 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"math/big"
+	"net/url"
 
-	"github.com/google/uuid"
-
-	"github.com/patrick-devel/shorturl/internal/models"
+	"github.com/sqids/sqids-go"
 )
 
-type FileManager struct {
-	consumer Consumer
-	producer Producer
+const minLength = 6
+
+type ShortLinkService struct {
+	baseURL *url.URL
+	storage storage
 }
 
-func New(consumer Consumer, producer Producer) *FileManager {
-	return &FileManager{consumer: consumer, producer: producer}
+func New(baseURL *url.URL, storage storage) *ShortLinkService {
+	return &ShortLinkService{baseURL: baseURL, storage: storage}
 }
 
-type Consumer interface {
-	ReadEvent(hash string) (*models.Event, error)
-	Close() error
-}
-type Producer interface {
-	WriteEvent(event *models.Event) error
-	Close() error
+type storage interface {
+	ReadEvent(ctx context.Context, hash string) (string, error)
+	WriteEvent(ctx context.Context, hash, originalURL string) error
 }
 
-func (fm *FileManager) ReadEvent(hash string) (string, error) {
-	event, err := fm.consumer.ReadEvent(hash)
+func (sh *ShortLinkService) MakeShortURL(ctx context.Context, originalURL string) (string, error) {
+	hash, err := sh.generateHash(originalURL)
 	if err != nil {
-		return "", fmt.Errorf("error read event: %w", err)
+		return "", fmt.Errorf("genarate hash failed: %w", err)
 	}
 
-	return event.OriginalURL, nil
+	err = sh.storage.WriteEvent(ctx, hash, originalURL)
+	if err != nil {
+		return "", fmt.Errorf("save event failed: %w", err)
+	}
+	return sh.baseURL.String() + "/" + hash, nil
 }
 
-func (fm *FileManager) WriteEvent(hash, originalURL string) error {
-	event := models.Event{UUID: uuid.NewString(), ShortURL: hash, OriginalURL: originalURL}
-	err := fm.producer.WriteEvent(&event)
+func (sh *ShortLinkService) GetOriginalURL(ctx context.Context, hash string) (string, error) {
+	originalURL, err := sh.storage.ReadEvent(ctx, hash)
 	if err != nil {
-		return fmt.Errorf("error write event: %w", err)
+		return "", fmt.Errorf("fetch url failed or not found: %w", err)
 	}
 
-	return nil
+	return originalURL, nil
 }
 
-func (fm *FileManager) CloseFiles() {
-	fm.consumer.Close()
-	fm.producer.Close()
+func (sh *ShortLinkService) generateHash(url string) (string, error) {
+	generatedNumber := new(big.Int).SetBytes([]byte(url)).Uint64()
+	s, err := sqids.New(sqids.Options{MinLength: minLength})
+	if err != nil {
+		return "", err
+	}
+
+	id, err := s.Encode([]uint64{generatedNumber})
+	if err != nil {
+		return "", err
+	}
+
+	return id, nil
 }
