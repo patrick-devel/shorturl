@@ -71,7 +71,7 @@ var flags = &ParsedFlags{}
 func init() {
 	flag.Var(&flags.Addr, "a", "Используйте адрес формата `host:port`")
 	flag.Var(&flags.TemplateLink, "b", "Адрес получения коротких ссылок. Пример: `http://localhost/path/to/short`")
-	flag.StringVar(&flags.FilePath, "f", "/tmp/short-url-db.json", "Путь до файла для сохранения данныз по запросам. Пример: `/path/to/dir`")
+	flag.StringVar(&flags.FilePath, "f", "/tmp/short-url-db.json", "Путь до файла для сохранения данных по запросам. Пример: `/path/to/dir`")
 	flag.StringVar(&flags.DatabaseDSN, "d", "", "Адрес базы данных. Пример: postgresql://user:passwd@localhost:5432/dbname")
 }
 
