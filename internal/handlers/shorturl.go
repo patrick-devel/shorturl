@@ -13,8 +13,9 @@ import (
 
 //go:generate mockgen -destination=./mocks/mock_service.go -package=mocks /Users/kspopova/GolandProjects/shorturl/internal/handlers shortService
 type shortService interface {
-	MakeShortURL(ctx context.Context, originalURL string) (string, error)
+	MakeShortURL(ctx context.Context, originalURL, uid string) (string, error)
 	GetOriginalURL(ctx context.Context, hash string) (string, error)
+	MakeShortURLs(ctx context.Context, bulk models.ListRequestBulk) ([]models.Event, error)
 }
 
 func MakeShortLinkHandler(service shortService) gin.HandlerFunc {
@@ -33,7 +34,7 @@ func MakeShortLinkHandler(service shortService) gin.HandlerFunc {
 			return
 		}
 
-		shortLink, err := service.MakeShortURL(c.Copy(), originalURL.String())
+		shortLink, err := service.MakeShortURL(c.Copy(), originalURL.String(), "")
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 
@@ -68,7 +69,7 @@ func MakeShortURLJSONHandler(service shortService) gin.HandlerFunc {
 			return
 		}
 
-		shortLink, err := service.MakeShortURL(c.Copy(), request.URL.String())
+		shortLink, err := service.MakeShortURL(c.Copy(), request.URL.String(), "")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, "")
 
@@ -76,5 +77,39 @@ func MakeShortURLJSONHandler(service shortService) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, &models.Response{Result: shortLink})
+	}
+}
+
+func MakeShortURLBulk(service shortService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var request models.ListRequestBulk
+
+		if err := c.BindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, "")
+
+			return
+		}
+
+		if len(request) == 0 {
+			c.JSON(http.StatusBadRequest, "")
+
+			return
+		}
+
+		response := make(models.ListResponseBulk, 0, len(request))
+
+		events, err := service.MakeShortURLs(c.Copy(), request)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "")
+		}
+
+		for _, e := range events {
+			response = append(response, models.ResponseBulk{
+				ShortUrl:      e.ShortURL,
+				CorrelationID: e.UUID,
+			})
+		}
+
+		c.JSON(http.StatusCreated, response)
 	}
 }

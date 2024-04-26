@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"fmt"
+
+	"github.com/patrick-devel/shorturl/internal/models"
 )
 
 type MemoryStorage struct {
@@ -22,7 +24,15 @@ func (s *MemoryStorage) ReadEvent(_ context.Context, hash string) (string, error
 	return originalURL, nil
 }
 
-func (s *MemoryStorage) WriteEvent(_ context.Context, hash, originalURL string) error {
-	s.cache[hash] = originalURL
+func (s *MemoryStorage) WriteEvent(_ context.Context, event models.Event) error {
+	s.cache[event.Hash] = event.OriginalURL
+	return nil
+}
+
+func (s *MemoryStorage) WriteEvents(_ context.Context, events []models.Event) error {
+	for _, e := range events {
+		s.cache[e.Hash] = e.OriginalURL
+	}
+
 	return nil
 }

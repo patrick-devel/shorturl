@@ -63,7 +63,7 @@ func (c *Consumer) ReadEvent(hash string) (*models.Event, error) {
 			return nil, err
 		}
 
-		if event.ShortURL == hash {
+		if event.Hash == hash {
 			return &event, nil
 		}
 	}

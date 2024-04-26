@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	filemanager "github.com/patrick-devel/shorturl/internal/file_manager"
 	"github.com/patrick-devel/shorturl/internal/models"
 )
@@ -47,11 +45,21 @@ func (fs *FileStorage) ReadEvent(_ context.Context, hash string) (string, error)
 	return event.OriginalURL, nil
 }
 
-func (fs *FileStorage) WriteEvent(_ context.Context, hash, originalURL string) error {
-	event := models.Event{UUID: uuid.NewString(), ShortURL: hash, OriginalURL: originalURL}
+func (fs *FileStorage) WriteEvent(_ context.Context, event models.Event) error {
 	err := fs.producer.WriteEvent(&event)
 	if err != nil {
 		return fmt.Errorf("error write event: %w", err)
+	}
+
+	return nil
+}
+
+func (fs *FileStorage) WriteEvents(_ context.Context, events []models.Event) error {
+	for _, e := range events {
+		err := fs.producer.WriteEvent(&e)
+		if err != nil {
+			return fmt.Errorf("error write event: %w", err)
+		}
 	}
 
 	return nil

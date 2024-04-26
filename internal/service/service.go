@@ -6,7 +6,10 @@ import (
 	"math/big"
 	"net/url"
 
+	"github.com/google/uuid"
 	"github.com/sqids/sqids-go"
+
+	"github.com/patrick-devel/shorturl/internal/models"
 )
 
 const minLength = 6
@@ -22,20 +25,32 @@ func New(baseURL *url.URL, storage storage) *ShortLinkService {
 
 type storage interface {
 	ReadEvent(ctx context.Context, hash string) (string, error)
-	WriteEvent(ctx context.Context, hash, originalURL string) error
+	WriteEvent(ctx context.Context, event models.Event) error
+	WriteEvents(ctx context.Context, event []models.Event) error
 }
 
-func (sh *ShortLinkService) MakeShortURL(ctx context.Context, originalURL string) (string, error) {
+func (sh *ShortLinkService) MakeShortURL(ctx context.Context, originalURL, uid string) (string, error) {
 	hash, err := sh.generateHash(originalURL)
 	if err != nil {
 		return "", fmt.Errorf("genarate hash failed: %w", err)
 	}
 
-	err = sh.storage.WriteEvent(ctx, hash, originalURL)
+	if uid == "" {
+		uid = uuid.NewString()
+	}
+
+	event := models.Event{
+		UUID:        uid,
+		ShortURL:    sh.baseURL.String() + "/" + hash,
+		OriginalURL: originalURL,
+		Hash:        hash,
+	}
+
+	err = sh.storage.WriteEvent(ctx, event)
 	if err != nil {
 		return "", fmt.Errorf("save event failed: %w", err)
 	}
-	return sh.baseURL.String() + "/" + hash, nil
+	return event.ShortURL, nil
 }
 
 func (sh *ShortLinkService) GetOriginalURL(ctx context.Context, hash string) (string, error) {
@@ -60,4 +75,29 @@ func (sh *ShortLinkService) generateHash(url string) (string, error) {
 	}
 
 	return id, nil
+}
+
+func (sh *ShortLinkService) MakeShortURLs(ctx context.Context, bulk models.ListRequestBulk) ([]models.Event, error) {
+	events := make([]models.Event, 0, len(bulk))
+	for _, r := range bulk {
+		hash, err := sh.generateHash(r.OriginalURL.String())
+		if err != nil {
+			return events, fmt.Errorf("genarate hash failed: %w", err)
+		}
+
+		event := models.Event{
+			UUID:        r.CorrelationID,
+			ShortURL:    sh.baseURL.String() + "/" + hash,
+			OriginalURL: r.OriginalURL.String(),
+			Hash:        hash,
+		}
+		events = append(events, event)
+	}
+
+	err := sh.storage.WriteEvents(ctx, events)
+	if err != nil {
+		return events, fmt.Errorf("save events failed: %w", err)
+	}
+
+	return events, nil
 }

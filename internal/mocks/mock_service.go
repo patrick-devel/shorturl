@@ -5,10 +5,11 @@
 package mocks
 
 import (
-	"context"
-	"reflect"
+	context "context"
+	reflect "reflect"
 
-	"github.com/golang/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
+	models "github.com/patrick-devel/shorturl/internal/models"
 )
 
 // MockshortService is a mock of shortService interface.
@@ -50,16 +51,31 @@ func (mr *MockshortServiceMockRecorder) GetOriginalURL(ctx, hash interface{}) *g
 }
 
 // MakeShortURL mocks base method.
-func (m *MockshortService) MakeShortURL(ctx context.Context, originalURL string) (string, error) {
+func (m *MockshortService) MakeShortURL(ctx context.Context, originalURL, uid string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MakeShortURL", ctx, originalURL)
+	ret := m.ctrl.Call(m, "MakeShortURL", ctx, originalURL, uid)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MakeShortURL indicates an expected call of MakeShortURL.
-func (mr *MockshortServiceMockRecorder) MakeShortURL(ctx, originalURL interface{}) *gomock.Call {
+func (mr *MockshortServiceMockRecorder) MakeShortURL(ctx, originalURL, uid interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeShortURL", reflect.TypeOf((*MockshortService)(nil).MakeShortURL), ctx, originalURL)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeShortURL", reflect.TypeOf((*MockshortService)(nil).MakeShortURL), ctx, originalURL, uid)
+}
+
+// MakeShortURLs mocks base method.
+func (m *MockshortService) MakeShortURLs(ctx context.Context, bulk models.ListRequestBulk) ([]models.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MakeShortURLs", ctx, bulk)
+	ret0, _ := ret[0].([]models.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MakeShortURLs indicates an expected call of MakeShortURLs.
+func (mr *MockshortServiceMockRecorder) MakeShortURLs(ctx, bulk interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeShortURLs", reflect.TypeOf((*MockshortService)(nil).MakeShortURLs), ctx, bulk)
 }

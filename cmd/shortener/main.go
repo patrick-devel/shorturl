@@ -114,6 +114,7 @@ func main() {
 	mux.POST("/", handlers.MakeShortLinkHandler(shortService))
 	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLinkHandler(shortService))
 	mux.POST("/api/shorten", handlers.MakeShortURLJSONHandler(shortService))
+	mux.POST("/api/shorten/batch", handlers.MakeShortURLBulk(shortService))
 	mux.GET("/ping", func(c *gin.Context) {
 		if db != nil {
 			if err := db.Ping(); err != nil {

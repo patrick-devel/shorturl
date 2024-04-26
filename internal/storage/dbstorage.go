@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 
 	"github.com/patrick-devel/shorturl/internal/models"
 )
@@ -31,13 +31,37 @@ func (s *DBStorage) ReadEvent(ctx context.Context, hash string) (string, error) 
 	return OriginalURL, nil
 }
 
-func (s *DBStorage) WriteEvent(ctx context.Context, hash, originalURL string) error {
-	event := models.Event{UUID: uuid.NewString(), ShortURL: hash, OriginalURL: originalURL}
-
+func (s *DBStorage) WriteEvent(ctx context.Context, event models.Event) error {
 	sqlStatement := `INSERT INTO urls (uuid, hash, original_url) VALUES ($1, $2, $3);`
-	_, err := s.db.ExecContext(ctx, sqlStatement, event.UUID, event.ShortURL, event.OriginalURL)
+	_, err := s.db.ExecContext(ctx, sqlStatement, event.UUID, event.Hash, event.OriginalURL)
 	if err != nil {
 		return fmt.Errorf("error write event to db: %w", err)
+	}
+
+	return nil
+}
+
+func (s *DBStorage) WriteEvents(ctx context.Context, events []models.Event) error {
+	sqlStatement := `INSERT INTO urls (uuid, hash, original_url) VALUES ($1, $2, $3);`
+
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("tx error: %w", err)
+	}
+
+	for _, e := range events {
+		_, err = tx.ExecContext(ctx, sqlStatement, e.UUID, e.Hash, e.OriginalURL)
+		if err != nil {
+			if rbError := tx.Rollback(); rbError != nil {
+				logrus.Errorf("insert failed, unable to rollback %v", rbError)
+			}
+
+			return fmt.Errorf("error write event to db: %w", err)
+		}
+	}
+
+	if cError := tx.Commit(); cError != nil {
+		return fmt.Errorf("commit error: %w", cError)
 	}
 
 	return nil

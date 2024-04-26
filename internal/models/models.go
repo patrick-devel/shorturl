@@ -9,6 +9,44 @@ type Request struct {
 	URL url.URL `json:"url"`
 }
 
+type RequestBulk struct {
+	OriginalURL   url.URL `json:"original_url"`
+	CorrelationID string  `json:"correlation_id"`
+}
+
+func (r *RequestBulk) UnmarshalJSON(data []byte) error {
+	type ReqAlias RequestBulk
+
+	aliasValue := struct {
+		ReqAlias
+		OriginalURL string `json:"original_url"`
+	}{
+		ReqAlias: ReqAlias(*r),
+	}
+
+	if err := json.Unmarshal(data, &aliasValue); err != nil {
+		return err
+	}
+
+	uri, err := url.ParseRequestURI(aliasValue.OriginalURL)
+	if err != nil {
+		return err
+	}
+
+	r.OriginalURL = *uri
+
+	return nil
+}
+
+type ListRequestBulk []RequestBulk
+
+type ResponseBulk struct {
+	ShortUrl      string `json:"short_url"`
+	CorrelationID string `json:"correlation_id"`
+}
+
+type ListResponseBulk []ResponseBulk
+
 func (r *Request) UnmarshalJSON(data []byte) error {
 	type ReqAlias Request
 
@@ -41,4 +79,5 @@ type Event struct {
 	UUID        string `json:"uuid"`
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+	Hash        string
 }
