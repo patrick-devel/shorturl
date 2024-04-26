@@ -105,7 +105,7 @@ func MakeShortURLBulk(service shortService) gin.HandlerFunc {
 
 		for _, e := range events {
 			response = append(response, models.ResponseBulk{
-				ShortUrl:      e.ShortURL,
+				ShortURL:      e.ShortURL,
 				CorrelationID: e.UUID,
 			})
 		}

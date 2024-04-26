@@ -41,7 +41,7 @@ func (r *RequestBulk) UnmarshalJSON(data []byte) error {
 type ListRequestBulk []RequestBulk
 
 type ResponseBulk struct {
-	ShortUrl      string `json:"short_url"`
+	ShortURL      string `json:"short_url"`
 	CorrelationID string `json:"correlation_id"`
 }
 
