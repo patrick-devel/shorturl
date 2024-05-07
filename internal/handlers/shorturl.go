@@ -101,6 +101,8 @@ func MakeShortURLBulk(service shortService) gin.HandlerFunc {
 		events, err := service.MakeShortURLs(c.Copy(), request)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, "")
+
+			return
 		}
 
 		for _, e := range events {

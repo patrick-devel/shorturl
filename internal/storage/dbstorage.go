@@ -42,7 +42,7 @@ func (s *DBStorage) WriteEvent(ctx context.Context, event models.Event) error {
 }
 
 func (s *DBStorage) WriteEvents(ctx context.Context, events []models.Event) error {
-	sqlStatement := `INSERT INTO urls (uuid, hash, original_url) VALUES ($1, $2, $3);`
+	sqlStatement := `INSERT INTO urls (uuid, hash, original_url) VALUES ($1, $2, $3) ON CONFLICT (hash) DO UPDATE SET uuid = EXCLUDED.uuid;`
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {

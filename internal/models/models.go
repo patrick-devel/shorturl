@@ -19,7 +19,8 @@ func (r *RequestBulk) UnmarshalJSON(data []byte) error {
 
 	aliasValue := struct {
 		ReqAlias
-		OriginalURL string `json:"original_url"`
+		OriginalURL   string `json:"original_url"`
+		CorrelationID string `json:"correlation_id"`
 	}{
 		ReqAlias: ReqAlias(*r),
 	}
@@ -34,6 +35,7 @@ func (r *RequestBulk) UnmarshalJSON(data []byte) error {
 	}
 
 	r.OriginalURL = *uri
+	r.CorrelationID = aliasValue.CorrelationID
 
 	return nil
 }
