@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -9,9 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/patrick-devel/shorturl/internal/models"
+	"github.com/patrick-devel/shorturl/internal/storage"
 )
 
-//go:generate mockgen -destination=./mocks/mock_service.go -package=mocks /Users/kspopova/GolandProjects/shorturl/internal/handlers shortService
 type shortService interface {
 	MakeShortURL(ctx context.Context, originalURL, uid string) (string, error)
 	GetOriginalURL(ctx context.Context, hash string) (string, error)
@@ -36,6 +37,11 @@ func MakeShortLinkHandler(service shortService) gin.HandlerFunc {
 
 		shortLink, err := service.MakeShortURL(c.Copy(), originalURL.String(), "")
 		if err != nil {
+			if errors.Is(err, storage.ErrDuplicateURL) {
+				c.String(http.StatusConflict, shortLink)
+
+				return
+			}
 			c.String(http.StatusInternalServerError, err.Error())
 
 			return
@@ -71,6 +77,11 @@ func MakeShortURLJSONHandler(service shortService) gin.HandlerFunc {
 
 		shortLink, err := service.MakeShortURL(c.Copy(), request.URL.String(), "")
 		if err != nil {
+			if errors.Is(err, storage.ErrDuplicateURL) {
+				c.JSON(http.StatusConflict, &models.Response{Result: shortLink})
+
+				return
+			}
 			c.JSON(http.StatusInternalServerError, "")
 
 			return

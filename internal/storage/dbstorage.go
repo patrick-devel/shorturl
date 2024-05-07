@@ -3,8 +3,11 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sirupsen/logrus"
 
 	"github.com/patrick-devel/shorturl/internal/models"
@@ -35,6 +38,11 @@ func (s *DBStorage) WriteEvent(ctx context.Context, event models.Event) error {
 	sqlStatement := `INSERT INTO urls (uuid, hash, original_url) VALUES ($1, $2, $3);`
 	_, err := s.db.ExecContext(ctx, sqlStatement, event.UUID, event.Hash, event.OriginalURL)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
+			err = ErrDuplicateURL
+		}
+
 		return fmt.Errorf("error write event to db: %w", err)
 	}
 
@@ -42,7 +50,7 @@ func (s *DBStorage) WriteEvent(ctx context.Context, event models.Event) error {
 }
 
 func (s *DBStorage) WriteEvents(ctx context.Context, events []models.Event) error {
-	sqlStatement := `INSERT INTO urls (uuid, hash, original_url) VALUES ($1, $2, $3) ON CONFLICT (hash) DO UPDATE SET uuid = EXCLUDED.uuid;`
+	sqlStatement := `INSERT INTO urls (uuid, hash, original_url) VALUES ($1, $2, $3) ON CONFLICT (url) DO UPDATE SET uuid = EXCLUDED.uuid;`
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {

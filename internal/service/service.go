@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -10,20 +11,21 @@ import (
 	"github.com/sqids/sqids-go"
 
 	"github.com/patrick-devel/shorturl/internal/models"
+	"github.com/patrick-devel/shorturl/internal/storage"
 )
 
 const minLength = 6
 
 type ShortLinkService struct {
 	baseURL *url.URL
-	storage storage
+	storage istorage
 }
 
-func New(baseURL *url.URL, storage storage) *ShortLinkService {
+func New(baseURL *url.URL, storage istorage) *ShortLinkService {
 	return &ShortLinkService{baseURL: baseURL, storage: storage}
 }
 
-type storage interface {
+type istorage interface {
 	ReadEvent(ctx context.Context, hash string) (string, error)
 	WriteEvent(ctx context.Context, event models.Event) error
 	WriteEvents(ctx context.Context, event []models.Event) error
@@ -48,6 +50,10 @@ func (sh *ShortLinkService) MakeShortURL(ctx context.Context, originalURL, uid s
 
 	err = sh.storage.WriteEvent(ctx, event)
 	if err != nil {
+		if errors.Is(err, storage.ErrDuplicateURL) {
+			return event.ShortURL, err
+		}
+
 		return "", fmt.Errorf("save event failed: %w", err)
 	}
 	return event.ShortURL, nil
