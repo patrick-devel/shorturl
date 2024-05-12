@@ -53,7 +53,7 @@ func NewConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
-func (c *Consumer) ReadEvent(hash string) (*models.Event, error) {
+func (c *Consumer) ReadEvent(shortURL string) (*models.Event, error) {
 	for c.scanner.Scan() {
 		data := c.scanner.Bytes()
 
@@ -63,7 +63,7 @@ func (c *Consumer) ReadEvent(hash string) (*models.Event, error) {
 			return nil, err
 		}
 
-		if event.ShortURL == hash {
+		if event.ShortURL == shortURL {
 			return &event, nil
 		}
 	}
@@ -73,6 +73,29 @@ func (c *Consumer) ReadEvent(hash string) (*models.Event, error) {
 	}
 
 	return nil, ErrNotFoundEvent
+}
+
+func (c *Consumer) ReadEventsByUserID(userID string) ([]models.Event, error) {
+	var events []models.Event
+	for c.scanner.Scan() {
+		data := c.scanner.Bytes()
+
+		event := models.Event{}
+		err := json.Unmarshal(data, &event)
+		if err != nil {
+			return nil, err
+		}
+
+		if event.CreatorID == userID {
+			events = append(events, event)
+		}
+	}
+
+	if c.scanner.Err() != nil {
+		return nil, c.scanner.Err()
+	}
+
+	return events, nil
 }
 
 func (c *Consumer) Close() error {
