@@ -19,30 +19,32 @@ const (
 func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := &jwt.StandardClaims{}
-		authKey, err := c.Cookie(NameCookie)
+		authKey := c.GetHeader("Authorization")
 
-		if err != nil {
+		if authKey == "" {
 			authKey, err := setToken(uuid.NewString(), jwtSecret, claims)
 			if err != nil {
 				c.AbortWithStatus(http.StatusInternalServerError)
 
 				return
 			}
-			c.SetCookie(NameCookie,
-				authKey,
-				3600,
-				"/",
-				c.Request.URL.Hostname(),
-				true,
-				true,
-			)
+
+			c.SetCookie(NameCookie, claims.Id, 15000, "/", c.Request.URL.Hostname(), true, true)
 			c.Set(string(ContextUserID), claims.Id)
+			c.Header("Authorization", authKey)
 			c.Next()
 
 			return
 		}
 
 		if err := validToken(authKey, jwtSecret, claims); err != nil {
+			c.AbortWithStatus(http.StatusUnauthorized)
+
+			return
+		}
+
+		userCookie, err := c.Cookie(NameCookie)
+		if err != nil || userCookie != claims.Id {
 			c.AbortWithStatus(http.StatusUnauthorized)
 
 			return
