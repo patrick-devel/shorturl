@@ -44,11 +44,12 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		}
 
 		userCookie, err := c.Cookie(NameCookie)
-		if err != nil || userCookie != claims.Id {
-			c.AbortWithStatus(http.StatusUnauthorized)
+		if err != nil {
+			c.SetCookie(NameCookie, claims.Id, 86000, "/", c.Request.URL.Hostname(), true, true)
 
 			return
 		}
+		fmt.Println(userCookie)
 
 		c.Set(string(ContextUserID), claims.Id)
 		c.Next()
