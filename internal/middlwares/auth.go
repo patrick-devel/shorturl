@@ -29,7 +29,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 				return
 			}
 
-			c.SetCookie(NameCookie, claims.Id, 15000, "/", c.Request.URL.Hostname(), true, true)
+			c.SetCookie(NameCookie, claims.Id, 86000, "/", c.Request.URL.Hostname(), true, true)
 			c.Set(string(ContextUserID), claims.Id)
 			c.Header("Authorization", authKey)
 			c.Next()

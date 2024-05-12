@@ -94,5 +94,9 @@ func (s *DBStorage) ReadEventsByCreatorID(ctx context.Context, userID string) ([
 
 	}
 
+	if rows.Err() != nil {
+		return events, fmt.Errorf("error scan rows: %w", rows.Err())
+	}
+
 	return events, nil
 }
