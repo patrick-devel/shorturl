@@ -50,6 +50,21 @@ func (mr *MockshortServiceMockRecorder) GetOriginalURL(ctx, hash interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOriginalURL", reflect.TypeOf((*MockshortService)(nil).GetOriginalURL), ctx, hash)
 }
 
+// LinksByCreatorID mocks base method.
+func (m *MockshortService) LinksByCreatorID(ctx context.Context) ([]models.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LinksByCreatorID", ctx)
+	ret0, _ := ret[0].([]models.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LinksByCreatorID indicates an expected call of LinksByCreatorID.
+func (mr *MockshortServiceMockRecorder) LinksByCreatorID(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinksByCreatorID", reflect.TypeOf((*MockshortService)(nil).LinksByCreatorID), ctx)
+}
+
 // MakeShortURL mocks base method.
 func (m *MockshortService) MakeShortURL(ctx context.Context, originalURL, uid string) (string, error) {
 	m.ctrl.T.Helper()

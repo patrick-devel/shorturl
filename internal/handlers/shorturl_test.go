@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -15,13 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/patrick-devel/shorturl/internal/handlers"
+	middlewares "github.com/patrick-devel/shorturl/internal/middlwares"
 	"github.com/patrick-devel/shorturl/internal/mocks"
 	"github.com/patrick-devel/shorturl/internal/models"
 )
 
 func TestMakeShortLinkHandler(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -72,10 +72,9 @@ func TestMakeShortLinkHandler(t *testing.T) {
 	for _, tc := range tests {
 		testcase := tc
 		t.Run(testcase.name, func(t *testing.T) {
-			t.Parallel()
 			req := httptest.NewRequest(testcase.method, "/", testcase.body)
 			recorder := httptest.NewRecorder()
-			mockService.EXPECT().MakeShortURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("http://localhost/test", nil)
+			mockService.EXPECT().MakeShortURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("http://localhost/test", nil).AnyTimes()
 			router.ServeHTTP(recorder, req)
 
 			resp := recorder.Result()
@@ -120,13 +119,11 @@ func TestRedirectShortLinkHandler(t *testing.T) {
 			},
 		},
 		{
-			name:    "MethodNotAllowed",
-			method:  http.MethodPatch,
-			hash:    "dkadwda",
-			expCode: http.StatusMethodNotAllowed,
-			mockExec: func() {
-				mockService.EXPECT().GetOriginalURL(gomock.Any(), gomock.Any()).Return(baseURL, nil)
-			},
+			name:     "MethodNotAllowed",
+			method:   http.MethodPatch,
+			hash:     "dkadwda",
+			expCode:  http.StatusMethodNotAllowed,
+			mockExec: func() {},
 		},
 		{
 			name:    "NotFound",
@@ -134,7 +131,7 @@ func TestRedirectShortLinkHandler(t *testing.T) {
 			hash:    "not_exist",
 			expCode: http.StatusNotFound,
 			mockExec: func() {
-				mockService.EXPECT().GetOriginalURL(gomock.Any(), gomock.Any()).Return("", errors.New("not found link"))
+				mockService.EXPECT().GetOriginalURL(gomock.Any(), gomock.Any()).Return("", errors.New("not found link")).Times(1)
 			},
 		},
 	}
@@ -142,7 +139,6 @@ func TestRedirectShortLinkHandler(t *testing.T) {
 	for _, tc := range tests {
 		testcase := tc
 		t.Run(testcase.name, func(t *testing.T) {
-			t.Parallel()
 			req := httptest.NewRequest(testcase.method, fmt.Sprintf("/%s", testcase.hash), http.NoBody)
 			req.SetPathValue("id", testcase.hash)
 
@@ -163,8 +159,6 @@ func TestRedirectShortLinkHandler(t *testing.T) {
 }
 
 func TestMakeShortLinkJSONHandler(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -240,8 +234,6 @@ func TestMakeShortLinkJSONHandler(t *testing.T) {
 }
 
 func TestMakeShortLinkBulk(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -300,7 +292,7 @@ func TestMakeShortLinkBulk(t *testing.T) {
 			mockService.EXPECT().
 				MakeShortURLs(gomock.Any(), gomock.Any()).
 				Return([]models.Event{{
-					Hash: "dadad", UUID: "2fb839d2-5bcf-45d1-8c76-64086f726153",
+					UUID:        "2fb839d2-5bcf-45d1-8c76-64086f726153",
 					OriginalURL: "https://practicum.yandex.ru/",
 					ShortURL:    "http://localhost/123sda"}},
 					nil,
@@ -317,6 +309,81 @@ func TestMakeShortLinkBulk(t *testing.T) {
 			assert.Equal(t, testcase.expCode, resp.StatusCode)
 
 			assert.NotEmpty(t, body)
+		})
+	}
+}
+
+func TestMakeShortByCreator(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := mocks.NewMockshortService(ctrl)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/api/user/urls", handlers.GetURLsByCreatorID(mockService))
+	router.HandleMethodNotAllowed = true
+
+	tests := []struct {
+		name     string
+		method   string
+		mockExec func()
+		expCode  int
+	}{
+		{
+			name:     "NotAllowed",
+			method:   http.MethodPost,
+			mockExec: func() {},
+			expCode:  http.StatusMethodNotAllowed,
+		},
+		{
+			name:   "OK",
+			method: http.MethodGet,
+			mockExec: func() {
+				mockService.EXPECT().LinksByCreatorID(gomock.Any()).Return([]models.Event{{
+					OriginalURL: "https://practicum.yandex.ru/",
+					ShortURL:    "http://localhost/123sda"}}, nil)
+			},
+			expCode: http.StatusOK,
+		},
+		{
+			name:   "NoContent",
+			method: http.MethodGet,
+			mockExec: func() {
+				mockService.EXPECT().LinksByCreatorID(gomock.Any()).Return([]models.Event{}, nil).Times(1)
+			},
+			expCode: http.StatusNoContent,
+		},
+		{
+			name:   "Error",
+			method: http.MethodGet,
+			mockExec: func() {
+				mockService.EXPECT().LinksByCreatorID(gomock.Any()).Return(nil, errors.New("failed")).Times(1)
+			},
+			expCode: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range tests {
+		testcase := tc
+		t.Run(testcase.name, func(t *testing.T) {
+			req := httptest.NewRequest(testcase.method, "/api/user/urls", http.NoBody)
+			ctx := context.WithValue(req.Context(), middlewares.ContextUserID, "USERID")
+			req = req.WithContext(ctx)
+
+			recorder := httptest.NewRecorder()
+
+			testcase.mockExec()
+
+			router.ServeHTTP(recorder, req)
+
+			resp := recorder.Result()
+			defer resp.Body.Close()
+
+			_, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+
+			assert.Equal(t, testcase.expCode, resp.StatusCode)
 		})
 	}
 }

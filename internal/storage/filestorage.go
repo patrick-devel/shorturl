@@ -28,6 +28,7 @@ func NewFileStorage(path string) (*FileStorage, error) {
 
 type Consumer interface {
 	ReadEvent(hash string) (*models.Event, error)
+	ReadEventsByUserID(userID string) ([]models.Event, error)
 	Close() error
 }
 
@@ -36,8 +37,8 @@ type Producer interface {
 	Close() error
 }
 
-func (fs *FileStorage) ReadEvent(_ context.Context, hash string) (string, error) {
-	event, err := fs.consumer.ReadEvent(hash)
+func (fs *FileStorage) ReadEvent(_ context.Context, shortURL string) (string, error) {
+	event, err := fs.consumer.ReadEvent(shortURL)
 	if err != nil {
 		return "", fmt.Errorf("error read event: %w", err)
 	}
@@ -63,4 +64,13 @@ func (fs *FileStorage) WriteEvents(_ context.Context, events []models.Event) err
 	}
 
 	return nil
+}
+
+func (fs *FileStorage) ReadEventsByCreatorID(_ context.Context, userID string) ([]models.Event, error) {
+	events, err := fs.consumer.ReadEventsByUserID(userID)
+	if err != nil {
+		return []models.Event{}, fmt.Errorf("error read events: %w", err)
+	}
+
+	return events, nil
 }

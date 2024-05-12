@@ -60,6 +60,8 @@ jobs:
         run: |
           cd cmd/shortener
           go build -buildvcs=false -o shortener
+        env:
+          JWT_SIGNING_KEY: ${{ vars.JWT_SIGNING_KEY }}
 
       - name: "Code increment #1"
         if: |

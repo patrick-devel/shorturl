@@ -79,7 +79,12 @@ type Response struct {
 
 type Event struct {
 	UUID        string `json:"uuid"`
+	CreatorID   string `json:"creator_id"`
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
-	Hash        string
+}
+
+type ResponseGetURLs struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
 }

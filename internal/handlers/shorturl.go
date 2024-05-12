@@ -17,6 +17,7 @@ type shortService interface {
 	MakeShortURL(ctx context.Context, originalURL, uid string) (string, error)
 	GetOriginalURL(ctx context.Context, hash string) (string, error)
 	MakeShortURLs(ctx context.Context, bulk models.ListRequestBulk) ([]models.Event, error)
+	LinksByCreatorID(ctx context.Context) ([]models.Event, error)
 }
 
 func MakeShortLinkHandler(service shortService) gin.HandlerFunc {
@@ -53,8 +54,7 @@ func MakeShortLinkHandler(service shortService) gin.HandlerFunc {
 
 func RedirectShortLinkHandler(service shortService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		hashURL := c.Param("id")
-		originalURL, err := service.GetOriginalURL(c.Copy(), hashURL)
+		originalURL, err := service.GetOriginalURL(c.Copy(), c.Request.RequestURI)
 		if err != nil {
 			c.String(http.StatusNotFound, err.Error())
 
@@ -124,5 +124,29 @@ func MakeShortURLBulk(service shortService) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, response)
+	}
+}
+
+func GetURLsByCreatorID(service shortService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		events, err := service.LinksByCreatorID(c.Copy())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "failed to get urls")
+
+			return
+		}
+
+		var resp []models.ResponseGetURLs
+
+		for _, e := range events {
+			resp = append(resp, models.ResponseGetURLs{ShortURL: e.ShortURL, OriginalURL: e.OriginalURL})
+		}
+		if len(resp) == 0 {
+			c.JSON(http.StatusNoContent, "urls not found")
+
+			return
+		}
+
+		c.JSON(http.StatusOK, resp)
 	}
 }

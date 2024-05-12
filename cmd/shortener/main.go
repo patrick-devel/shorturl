@@ -105,16 +105,19 @@ func main() {
 		cache := map[string]string{}
 		store = storage.NewMemoryStorage(cache)
 	}
-
+	jwtSecret := os.Getenv("JWT_SIGNING_KEY")
 	shortService := service.New(&cfg.BaseURL, store)
+	authMidlwr := middlewares.AuthMiddleware(jwtSecret, logger)
 
 	mux := gin.New()
 	mux.Use(loggingMdlwr)
 	mux.Use(middlewares.GzipMiddleware())
-	mux.POST("/", handlers.MakeShortLinkHandler(shortService))
+	mux.POST("/", authMidlwr, handlers.MakeShortLinkHandler(shortService))
 	mux.GET(fmt.Sprintf("%s/:id", cfg.BaseURL.Path), handlers.RedirectShortLinkHandler(shortService))
-	mux.POST("/api/shorten", handlers.MakeShortURLJSONHandler(shortService))
-	mux.POST("/api/shorten/batch", handlers.MakeShortURLBulk(shortService))
+	mux.POST("/api/shorten", authMidlwr, handlers.MakeShortURLJSONHandler(shortService))
+	mux.POST("/api/shorten/batch", authMidlwr, handlers.MakeShortURLBulk(shortService))
+	mux.GET("/api/user/urls", authMidlwr, handlers.GetURLsByCreatorID(shortService))
+
 	mux.GET("/ping", func(c *gin.Context) {
 		if db != nil {
 			if err := db.Ping(); err != nil {
