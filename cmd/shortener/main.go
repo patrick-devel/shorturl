@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
@@ -94,7 +96,7 @@ func main() {
 		defer db.Close()
 		makeMigrate(cfg.DatabaseDSN)
 
-		store = storage.NewDBStorage(db)
+		store = storage.NewDBStorage(db, 5*time.Second)
 	case fileStorage != "":
 		store, err = storage.NewFileStorage(cfg.FileStoragePath)
 		if err != nil {
@@ -105,8 +107,11 @@ func main() {
 		cache := map[string]string{}
 		store = storage.NewMemoryStorage(cache)
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	jwtSecret := os.Getenv("JWT_SIGNING_KEY")
-	shortService := service.New(&cfg.BaseURL, store)
+	shortService := service.New(&cfg.BaseURL, store, ctx)
 	authMidlwr := middlewares.AuthMiddleware(jwtSecret, logger)
 
 	mux := gin.New()
@@ -117,6 +122,7 @@ func main() {
 	mux.POST("/api/shorten", authMidlwr, handlers.MakeShortURLJSONHandler(shortService))
 	mux.POST("/api/shorten/batch", authMidlwr, handlers.MakeShortURLBulk(shortService))
 	mux.GET("/api/user/urls", authMidlwr, handlers.GetURLsByCreatorID(shortService))
+	mux.DELETE("/api/user/urls", authMidlwr, handlers.DeleteShortUrls(shortService))
 
 	mux.GET("/ping", func(c *gin.Context) {
 		if db != nil {

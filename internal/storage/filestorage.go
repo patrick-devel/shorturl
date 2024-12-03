@@ -74,3 +74,7 @@ func (fs *FileStorage) ReadEventsByCreatorID(_ context.Context, userID string) (
 
 	return events, nil
 }
+
+func (fs *FileStorage) SetDeleteByShortURL(shorts []string) error {
+	return nil
+}

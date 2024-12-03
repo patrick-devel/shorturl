@@ -56,6 +56,12 @@ func RedirectShortLinkHandler(service shortService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		originalURL, err := service.GetOriginalURL(c.Copy(), c.Request.RequestURI)
 		if err != nil {
+			if errors.Is(err, storage.ErrEventDeleted) {
+				c.String(http.StatusGone, "")
+
+				return
+			}
+
 			c.String(http.StatusNotFound, err.Error())
 
 			return

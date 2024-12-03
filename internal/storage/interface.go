@@ -11,4 +11,5 @@ type Store interface {
 	WriteEvent(ctx context.Context, event models.Event) error
 	WriteEvents(_ context.Context, events []models.Event) error
 	ReadEventsByCreatorID(ctx context.Context, userID string) ([]models.Event, error)
+	SetDeleteByShortURL(shorts []string) error
 }

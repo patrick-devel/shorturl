@@ -40,3 +40,7 @@ func (s *MemoryStorage) WriteEvents(_ context.Context, events []models.Event) er
 func (s *MemoryStorage) ReadEventsByCreatorID(_ context.Context, _ string) ([]models.Event, error) {
 	return []models.Event{}, nil
 }
+
+func (s *MemoryStorage) SetDeleteByShortURL(shorts []string) error {
+	return nil
+}

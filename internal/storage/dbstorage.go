@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/lib/pq"
@@ -13,22 +14,31 @@ import (
 	"github.com/patrick-devel/shorturl/internal/models"
 )
 
+var ErrEventDeleted = errors.New("event deleted")
+
 type DBStorage struct {
 	db *sql.DB
+
+	queryTimeout time.Duration
 }
 
-func NewDBStorage(db *sql.DB) *DBStorage {
-	return &DBStorage{db: db}
+func NewDBStorage(db *sql.DB, timeout time.Duration) *DBStorage {
+	return &DBStorage{db: db, queryTimeout: timeout}
 }
 
 func (s *DBStorage) ReadEvent(ctx context.Context, shortURL string) (string, error) {
-	row := s.db.QueryRowContext(ctx, "SELECT original_url FROM urls WHERE short_url=$1;", shortURL)
+	row := s.db.QueryRowContext(ctx, "SELECT original_url, is_deleted FROM urls WHERE short_url=$1;", shortURL)
 
 	var OriginalURL string
+	var isDeleted bool
 
-	err := row.Scan(&OriginalURL)
+	err := row.Scan(&OriginalURL, &isDeleted)
 	if err != nil {
 		return "", fmt.Errorf("error fetch event from db: %w", err)
+	}
+
+	if isDeleted {
+		return "", ErrEventDeleted
 	}
 
 	return OriginalURL, nil
@@ -76,7 +86,7 @@ func (s *DBStorage) WriteEvents(ctx context.Context, events []models.Event) erro
 }
 
 func (s *DBStorage) ReadEventsByCreatorID(ctx context.Context, userID string) ([]models.Event, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT uuid, creator_id, short_url, original_url FROM urls WHERE creator_id=$1;", userID)
+	rows, err := s.db.QueryContext(ctx, "SELECT uuid, creator_id, short_url, original_url FROM urls WHERE creator_id=$1 and is_deleted = false;", userID)
 	if err != nil {
 		return []models.Event{}, fmt.Errorf("error fetch events from db: %w", err)
 	}
@@ -99,4 +109,28 @@ func (s *DBStorage) ReadEventsByCreatorID(ctx context.Context, userID string) ([
 	}
 
 	return events, nil
+}
+
+func (s *DBStorage) SetDeleteByShortURL(shorts []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
+	defer cancel()
+
+	if len(shorts) == 0 {
+		return nil
+	}
+
+	rows, err := s.db.ExecContext(ctx,
+		"UPDATE urls SET is_deleted=true WHERE short_url = any($1);",
+		pq.Array(shorts))
+	if err != nil {
+		return fmt.Errorf("error update event to db: %w", err)
+	}
+
+	count, err := rows.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error update event to db: %w", err)
+	}
+
+	logrus.Infof("update cpunt %d", count)
+	return nil
 }

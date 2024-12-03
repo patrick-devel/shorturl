@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/patrick-devel/shorturl/internal/handlers"
+	mockhandlers "github.com/patrick-devel/shorturl/internal/handlers/mocks"
 	middlewares "github.com/patrick-devel/shorturl/internal/middlwares"
-	"github.com/patrick-devel/shorturl/internal/mocks"
 	"github.com/patrick-devel/shorturl/internal/models"
 )
 
@@ -25,7 +25,7 @@ func TestMakeShortLinkHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockService := mocks.NewMockshortService(ctrl)
+	mockService := mockhandlers.NewMockshortService(ctrl)
 
 	router := gin.Default()
 	router.POST("/", handlers.MakeShortLinkHandler(mockService))
@@ -93,7 +93,7 @@ func TestRedirectShortLinkHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockService := mocks.NewMockshortService(ctrl)
+	mockService := mockhandlers.NewMockshortService(ctrl)
 
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
@@ -162,7 +162,7 @@ func TestMakeShortLinkJSONHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockService := mocks.NewMockshortService(ctrl)
+	mockService := mockhandlers.NewMockshortService(ctrl)
 
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
@@ -237,7 +237,7 @@ func TestMakeShortLinkBulk(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockService := mocks.NewMockshortService(ctrl)
+	mockService := mockhandlers.NewMockshortService(ctrl)
 
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
@@ -317,7 +317,7 @@ func TestMakeShortByCreator(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockService := mocks.NewMockshortService(ctrl)
+	mockService := mockhandlers.NewMockshortService(ctrl)
 
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()

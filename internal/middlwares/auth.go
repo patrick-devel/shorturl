@@ -19,10 +19,25 @@ const (
 func AuthMiddleware(jwtSecret string, logger *logrus.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := &jwt.StandardClaims{}
-		authHeader := c.GetHeader("Authorization")
-		logger.WithField("Authorization", authHeader).Info("check header")
 
-		if authHeader == "" {
+		var authToken string
+
+		authHeader := c.GetHeader("Authorization")
+		cookie, err := c.Cookie("user_id_signed")
+		if err != nil {
+			logrus.WithError(err).Warning("cookie not found")
+		}
+
+		switch {
+		case authHeader != "":
+			authToken = authHeader
+		case cookie != "":
+			authToken = cookie
+		}
+
+		logger.WithFields(logrus.Fields{"Authorization": authHeader, "cookie": cookie}).Info("check authorization")
+
+		if authToken == "" {
 			if c.Request.Method == http.MethodPost {
 				authKey, err := setToken(uuid.NewString(), jwtSecret, claims)
 				if err != nil {
@@ -32,6 +47,7 @@ func AuthMiddleware(jwtSecret string, logger *logrus.Logger) gin.HandlerFunc {
 					return
 				}
 				c.Header("Authorization", authKey)
+				c.SetCookie("user_id_signed", authKey, 60*60*24, "/", "", false, true)
 				c.Set(string(ContextUserID), claims.Id)
 				c.Next()
 
@@ -39,7 +55,7 @@ func AuthMiddleware(jwtSecret string, logger *logrus.Logger) gin.HandlerFunc {
 			}
 		}
 
-		if err := validToken(authHeader, jwtSecret, claims); err != nil {
+		if err := validToken(authToken, jwtSecret, claims); err != nil {
 			logger.Error(err)
 			c.AbortWithStatus(http.StatusUnauthorized)
 
