@@ -22,23 +22,23 @@ const batchDelete = 10
 
 type ShortLinkService struct {
 	baseURL *url.URL
-	storage istorage
+	storage store
 
 	urlsCh chan string
 	ctx    context.Context
 }
 
-func New(baseURL *url.URL, storage istorage, ctx context.Context) *ShortLinkService {
+func New(baseURL *url.URL, storage store, ctx context.Context) *ShortLinkService {
 	urlsCh := make(chan string)
 	sh := &ShortLinkService{baseURL: baseURL, storage: storage, urlsCh: urlsCh, ctx: ctx}
 	go sh.runDelete()
 	return sh
 }
 
-type istorage interface {
+type store interface {
 	ReadEvent(ctx context.Context, hash string) (string, error)
 	WriteEvent(ctx context.Context, event models.Event) error
-	WriteEvents(ctx context.Context, event []models.Event) error
+	WriteEvents(_ context.Context, events []models.Event) error
 	ReadEventsByCreatorID(ctx context.Context, userID string) ([]models.Event, error)
 	SetDeleteByShortURL(shorts []string) error
 }

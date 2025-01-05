@@ -19,9 +19,18 @@ import (
 	"github.com/patrick-devel/shorturl/config"
 	"github.com/patrick-devel/shorturl/internal/handlers"
 	middlewares "github.com/patrick-devel/shorturl/internal/middlwares"
+	"github.com/patrick-devel/shorturl/internal/models"
 	"github.com/patrick-devel/shorturl/internal/service"
 	"github.com/patrick-devel/shorturl/internal/storage"
 )
+
+type storager interface {
+	ReadEvent(ctx context.Context, hash string) (string, error)
+	WriteEvent(ctx context.Context, event models.Event) error
+	WriteEvents(_ context.Context, events []models.Event) error
+	ReadEventsByCreatorID(ctx context.Context, userID string) ([]models.Event, error)
+	SetDeleteByShortURL(shorts []string) error
+}
 
 func makeMigrate(dsn string) {
 	m, err := migrate.New("file://./migrations", dsn)
@@ -79,7 +88,7 @@ func main() {
 
 	loggingMdlwr := middlewares.LoggingMiddleware(logger)
 
-	var store storage.Store
+	var store storager
 	var db *sql.DB
 
 	switch {
