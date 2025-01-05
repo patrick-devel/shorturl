@@ -59,18 +59,24 @@ func (t *TemplateLink) Set(value string) error {
 	return nil
 }
 
-var addr Addr
-var template TemplateLink
-var filePath string
-
-func init() {
-	flag.Var(&addr, "a", "Используйте адрес формата `host:port`")
-	flag.Var(&template, "b", "Укажите адрес получения коротких ссылок. Пример: `http://localhost/path/to/short`")
-	flag.StringVar(&filePath, "f", "/tmp/short-url-db.json", "Укажите путь до файла для сохранения данныз по запросам. Пример: `/path/to/dir`")
+type ParsedFlags struct {
+	Addr         Addr
+	TemplateLink TemplateLink
+	FilePath     string
+	DatabaseDSN  string
 }
 
-func ParseFlag() (Addr, TemplateLink, string) {
+var flags = &ParsedFlags{}
+
+func init() {
+	flag.Var(&flags.Addr, "a", "Используйте адрес формата `host:port`")
+	flag.Var(&flags.TemplateLink, "b", "Адрес получения коротких ссылок. Пример: `http://localhost/path/to/short`")
+	flag.StringVar(&flags.FilePath, "f", "/tmp/short-url-db.json", "Путь до файла для сохранения данных по запросам. Пример: `/path/to/dir`")
+	flag.StringVar(&flags.DatabaseDSN, "d", "", "Адрес базы данных. Пример: postgresql://user:passwd@localhost:5432/dbname")
+}
+
+func ParseFlag() ParsedFlags {
 	flag.Parse()
 
-	return addr, template, filePath
+	return *flags
 }

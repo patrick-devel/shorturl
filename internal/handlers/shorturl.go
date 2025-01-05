@@ -1,116 +1,158 @@
 package handlers
 
 import (
+	"context"
+	"errors"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
-	"github.com/sqids/sqids-go"
 
-	"github.com/patrick-devel/shorturl/config"
 	"github.com/patrick-devel/shorturl/internal/models"
-	"github.com/patrick-devel/shorturl/internal/service"
+	"github.com/patrick-devel/shorturl/internal/storage"
 )
 
-const minLength = 6
-
-var Cache = map[string]string{}
-
-func GenerateHash(url string) (*string, error) {
-	generatedNumber := new(big.Int).SetBytes([]byte(url)).Uint64()
-	s, err := sqids.New(sqids.Options{MinLength: minLength})
-	if err != nil {
-		return nil, err
-	}
-
-	id, err := s.Encode([]uint64{generatedNumber})
-	if err != nil {
-		return nil, err
-	}
-
-	return &id, nil
+type shortService interface {
+	MakeShortURL(ctx context.Context, originalURL, uid string) (string, error)
+	GetOriginalURL(ctx context.Context, hash string) (string, error)
+	MakeShortURLs(ctx context.Context, bulk models.ListRequestBulk) ([]models.Event, error)
+	LinksByCreatorID(ctx context.Context) ([]models.Event, error)
 }
 
-func MakeShortLinkHandler(c *config.Config, fileManager *service.FileManager) gin.HandlerFunc {
-	return func(context *gin.Context) {
-		body, err := io.ReadAll(context.Request.Body)
+func MakeShortLinkHandler(service shortService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			context.String(http.StatusBadRequest, err.Error())
+			c.String(http.StatusBadRequest, err.Error())
+
 			return
 		}
 
-		urlBase, err := url.ParseRequestURI(string(body))
+		originalURL, err := url.ParseRequestURI(string(body))
 		if err != nil {
-			context.String(http.StatusBadRequest, err.Error())
+			c.String(http.StatusBadRequest, err.Error())
+
 			return
 		}
 
-		urlHashBytes, err := GenerateHash(urlBase.String())
+		shortLink, err := service.MakeShortURL(c.Copy(), originalURL.String(), "")
 		if err != nil {
-			context.String(http.StatusInternalServerError, err.Error())
-			return
-		}
+			if errors.Is(err, storage.ErrDuplicateURL) {
+				c.String(http.StatusConflict, shortLink)
 
-		shortLink := c.BaseURL.String() + "/" + *urlHashBytes
-		Cache[*urlHashBytes] = urlBase.String()
-
-		if fileManager != nil {
-			if err := fileManager.WriteEvent(*urlHashBytes, urlBase.String()); err != nil {
-				logrus.Warning(err)
+				return
 			}
+			c.String(http.StatusInternalServerError, err.Error())
+
+			return
 		}
 
-		context.String(http.StatusCreated, shortLink)
+		c.String(http.StatusCreated, shortLink)
 	}
 }
 
-func RedirectShortLinkHandler(fileManager *service.FileManager) gin.HandlerFunc {
-	return func(context *gin.Context) {
-		hashURL := context.Param("id")
-		baseURL, ok := Cache[hashURL]
-		if !ok && fileManager != nil {
-			originalURL, err := fileManager.ReadEvent(hashURL)
-			if err != nil {
-				context.String(http.StatusBadRequest, "link does not exist")
+func RedirectShortLinkHandler(service shortService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		originalURL, err := service.GetOriginalURL(c.Copy(), c.Request.RequestURI)
+		if err != nil {
+			if errors.Is(err, storage.ErrEventDeleted) {
+				c.String(http.StatusGone, "")
+
 				return
 			}
 
-			baseURL = originalURL
-		} else if !ok {
-			context.String(http.StatusBadRequest, "link does not exist")
+			c.String(http.StatusNotFound, err.Error())
+
 			return
 		}
 
-		context.Redirect(http.StatusTemporaryRedirect, baseURL)
+		c.Redirect(http.StatusTemporaryRedirect, originalURL)
 	}
 }
 
-func MakeShortURLJSONHandler(c *config.Config, fileManager *service.FileManager) gin.HandlerFunc {
-	return func(context *gin.Context) {
+func MakeShortURLJSONHandler(service shortService) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var request models.Request
 
-		if err := context.BindJSON(&request); err != nil {
-			context.String(http.StatusBadRequest, err.Error())
-		}
+		if err := c.BindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, "")
 
-		urlHashBytes, err := GenerateHash(request.URL.String())
-		if err != nil {
-			context.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		Cache[*urlHashBytes] = request.URL.String()
-		resp := models.Response{Result: c.BaseURL.String() + "/" + *urlHashBytes}
+		shortLink, err := service.MakeShortURL(c.Copy(), request.URL.String(), "")
+		if err != nil {
+			if errors.Is(err, storage.ErrDuplicateURL) {
+				c.JSON(http.StatusConflict, &models.Response{Result: shortLink})
 
-		if fileManager != nil {
-			if err := fileManager.WriteEvent(*urlHashBytes, c.BaseURL.String()); err != nil {
-				logrus.Warning(err)
+				return
 			}
+			c.JSON(http.StatusInternalServerError, "")
+
+			return
 		}
 
-		context.JSON(http.StatusCreated, resp)
+		c.JSON(http.StatusCreated, &models.Response{Result: shortLink})
+	}
+}
+
+func MakeShortURLBulk(service shortService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var request models.ListRequestBulk
+
+		if err := c.BindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, "")
+
+			return
+		}
+
+		if len(request) == 0 {
+			c.JSON(http.StatusBadRequest, "")
+
+			return
+		}
+
+		response := make(models.ListResponseBulk, 0, len(request))
+
+		events, err := service.MakeShortURLs(c.Copy(), request)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "")
+
+			return
+		}
+
+		for _, e := range events {
+			response = append(response, models.ResponseBulk{
+				ShortURL:      e.ShortURL,
+				CorrelationID: e.UUID,
+			})
+		}
+
+		c.JSON(http.StatusCreated, response)
+	}
+}
+
+func GetURLsByCreatorID(service shortService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		events, err := service.LinksByCreatorID(c.Copy())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "failed to get urls")
+
+			return
+		}
+
+		var resp []models.ResponseGetURLs
+
+		for _, e := range events {
+			resp = append(resp, models.ResponseGetURLs{ShortURL: e.ShortURL, OriginalURL: e.OriginalURL})
+		}
+		if len(resp) == 0 {
+			c.JSON(http.StatusNoContent, "urls not found")
+
+			return
+		}
+
+		c.JSON(http.StatusOK, resp)
 	}
 }

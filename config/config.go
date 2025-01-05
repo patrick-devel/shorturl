@@ -22,6 +22,8 @@ type Config struct {
 
 	FileStoragePath string
 	fileIsTemp      bool
+
+	DatabaseDSN string
 }
 
 func (c *Config) RemoveTemp() {
@@ -58,6 +60,14 @@ func (cb *ConfigBuilder) WithBaseURL(baseURL url.URL) *ConfigBuilder {
 func (cb *ConfigBuilder) WithFileStoragePath(path string) *ConfigBuilder {
 	if path != "" {
 		cb.config.FileStoragePath = path
+	}
+
+	return cb
+}
+
+func (cb *ConfigBuilder) WithDatabaseDSN(dsn string) *ConfigBuilder {
+	if dsn != "" {
+		cb.config.DatabaseDSN = dsn
 	}
 
 	return cb

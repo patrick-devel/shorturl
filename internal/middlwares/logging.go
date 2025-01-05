@@ -9,12 +9,12 @@ import (
 )
 
 type ResponseWriterInterceptor struct {
-	http.ResponseWriter
+	gin.ResponseWriter
 
 	code int
 }
 
-func WrapperResponse(w http.ResponseWriter) *ResponseWriterInterceptor {
+func WrapperResponse(w gin.ResponseWriter) *ResponseWriterInterceptor {
 	return &ResponseWriterInterceptor{ResponseWriter: w}
 }
 
@@ -34,8 +34,8 @@ func (rw *ResponseWriterInterceptor) WriteHeader(statusCode int) {
 func LoggingMiddleware(logger *logrus.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		wrapper := WrapperResponse(c.Writer)
+		c.Writer = wrapper
 		start := time.Now()
-
 		c.Next()
 
 		logger.WithContext(c).WithFields(
